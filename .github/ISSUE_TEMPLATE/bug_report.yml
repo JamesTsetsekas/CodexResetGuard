@@ -1,0 +1,22 @@
+name: Bug report
+description: Report a reproducible problem without private account data.
+body:
+  - type: input
+    id: versions
+    attributes:
+      label: App, Codex CLI, and Windows versions
+      placeholder: Reset Guard 1.0.0, codex-cli 0.147.0, Windows 11
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Include steps, expected behavior, and actual behavior. Use sample data; omit real account details, credit IDs, auth files, and tokens.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Relevant rules and recovery status
+      description: Threshold, selected usage window, reserve, and whether a request is pending. Do not upload state.json.

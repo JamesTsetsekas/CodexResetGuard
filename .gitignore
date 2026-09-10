@@ -1,0 +1,11 @@
+/build/
+/artifacts/
+/source/build/
+.vs/
+*.user
+*.suo
+state.json*
+auth.json
+.env*
+live-check.json
+*-private.*
