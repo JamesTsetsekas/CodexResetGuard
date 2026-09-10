@@ -37,6 +37,7 @@ namespace CodexResetGuard
         private readonly Icon pendingIcon = TrayIcons.Create(Color.FromArgb(183, 113, 20));
         private readonly System.Windows.Forms.Timer timer;
         private readonly EventWaitHandle showEvent;
+        private readonly Font menuFont = PaintKit.Font(9.5F, false);
         private GuardForm form;
         private long nextCheck;
         private bool exiting;
@@ -89,6 +90,9 @@ namespace CodexResetGuard
         private void BuildMenu()
         {
             var menu = tray.ContextMenuStrip; menu.Items.Clear();
+            menu.Renderer = new ModernMenuRenderer(form.CurrentPalette); menu.Font = menuFont;
+            menu.BackColor = form.CurrentPalette.Surface; menu.ForeColor = form.CurrentPalette.Ink;
+            menu.ShowImageMargin = false; menu.ShowCheckMargin = true; menu.Padding = new Padding(4);
             menu.Items.Add("Codex Reset Guard", null, delegate { ShowSettings(); });
             menu.Items.Add(new ToolStripMenuItem(engine.State.Enabled ? "Automatic resets enabled" : "Automatic resets off") { Enabled = false });
             if (engine.Latest != null && engine.Latest.Weekly != null) menu.Items.Add(new ToolStripMenuItem(Data.Percent(engine.Latest.Weekly.Used) + " weekly used · " + (engine.Latest.AvailableCount.HasValue ? engine.Latest.AvailableCount.Value.ToString() : "?") + " credits") { Enabled = false });
@@ -120,12 +124,13 @@ namespace CodexResetGuard
             var refresh = new ToolStripMenuItem("Refresh now", null, async delegate { await RefreshAsync(false); }) { Enabled = !engine.Busy }; menu.Items.Add(refresh);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("Quit", null, delegate { Quit(); });
+            foreach (ToolStripItem item in menu.Items) item.Padding = new Padding(7, 5, 7, 5);
         }
         private void Quit()
         {
             exiting = true; timer.Stop(); tray.Visible = false; tray.Dispose(); if (form != null) form.Dispose();
             offIcon.Dispose(); onIcon.Dispose(); pendingIcon.Dispose(); ExitThread();
         }
-        protected override void Dispose(bool disposing) { if (disposing) { timer.Dispose(); showEvent.Dispose(); } base.Dispose(disposing); }
+        protected override void Dispose(bool disposing) { if (disposing) { timer.Dispose(); showEvent.Dispose(); menuFont.Dispose(); } base.Dispose(disposing); }
     }
 }

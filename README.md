@@ -8,13 +8,15 @@
 
 **[Download for Windows x64](https://github.com/JamesTsetsekas/CodexResetGuard/releases/latest)** · [User guide](docs/USER-GUIDE.md) · [Report a bug](https://github.com/JamesTsetsekas/CodexResetGuard/issues/new/choose)
 
-[![Watch the 37-second demo](docs/images/demo-poster.png)](https://github.com/JamesTsetsekas/CodexResetGuard/releases/download/v1.0.0/codex-reset-guard-x-square.mp4)
+| Light | Dark |
+| --- | --- |
+| ![Light appearance with synthetic account data](docs/images/automatic-resets.png) | ![Dark appearance with synthetic account data](docs/images/automatic-resets-dark.png) |
 
-**[Watch the 37-second demo with original music](https://github.com/JamesTsetsekas/CodexResetGuard/releases/download/v1.0.0/codex-reset-guard-x-square.mp4)** — actual Windows UI, isolated sample account, no real credits used.
+*The compact v1.1 interface, with a sample account. Automatic resets start disabled.*
 
-![Automatic reset settings with synthetic account data](docs/images/automatic-resets.png)
+Choose **Settings → Appearance → Light, Dark, or Use Windows setting**. Appearance changes take effect immediately and leave your reset rules untouched. Use **F5** to refresh, **Ctrl+Tab** to move between pages, and **Escape** to return to the tray.
 
-*Real app, sample account. Automatic resets start disabled.*
+[Watch the 37-second reset demo with original music](https://github.com/JamesTsetsekas/CodexResetGuard/releases/download/v1.0.0/codex-reset-guard-x-square.mp4). It shows the original v1.0 interface with synthetic data; the reset workflow is the same in v1.1.
 
 ## What it does
 
@@ -31,8 +33,8 @@ This redeems reset credits you already have. It does not purchase credits, switc
 
 1. Install the official [Codex CLI](https://github.com/openai/codex) **0.147.0 or newer** and sign in with your ChatGPT account.
 2. Download and extract the release ZIP. Keep `CodexResetGuard.exe` and its `.config` file together, then open the executable.
-3. In **Reset credits**, check which credits the app may use.
-4. In **Automatic resets**, set the threshold, enabled period, maximum resets, and reserve. Click **Enable automatic resets**.
+3. In **Credits**, check which credits the app may use.
+4. In **Automation**, set the threshold, enabled period, maximum resets, and reserve. Click **Enable automatic resets**.
 
 Defaults are **off**, **95% weekly usage**, **12 hours**, **one reset maximum**, and **one credit in reserve**. If you only have one credit and want it usable, set the reserve to zero. Close the window to keep the tray app running; choose **Pause** to stop automatic redemption.
 
@@ -66,7 +68,7 @@ No package restore or separate .NET SDK is required. From Windows PowerShell:
 The build uses the C# compiler included with .NET Framework. Tests use an isolated fake reset service, including the actual stdio transport. They do not consume credits. To produce the tested portable ZIP and SHA-256 manifest:
 
 ```powershell
-.\scripts\Release.ps1 -Version 1.0.0
+.\scripts\Release.ps1 -Version 1.1.0
 ```
 
 UI verification uses `--ui-smoke <directory>` with synthetic data. Live connection verification uses `--read-only-check <report.json>` and cannot redeem credits. Details are in [CONTRIBUTING.md](CONTRIBUTING.md).

@@ -18,10 +18,20 @@ jobs:
           .\source\Build.ps1 -OutDir .\build
           .\build\CodexResetGuard.Tests.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify both themes and UI controls with a fake account
+        shell: powershell
+        run: |
+          $process = Start-Process .\build\CodexResetGuard.exe -ArgumentList '--ui-smoke', 'build\ui' -WindowStyle Hidden -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            Get-Content .\build\ui\ui-smoke-error.txt
+            exit 1
+          }
+          Get-Content .\build\ui\ui-checks.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: windows-x64
           path: |
             build/CodexResetGuard.exe
             build/CodexResetGuard.exe.config
+            build/ui/*.json
           if-no-files-found: error

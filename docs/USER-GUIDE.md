@@ -1,20 +1,28 @@
 # Codex Reset Guard
 
-A small, portable Windows tray app that uses your **existing banked Codex reset credits**, according to rules you explicitly enable. Version 1.0.0. Independent software; not an OpenAI product.
+A small, portable Windows tray app that uses your **existing banked Codex reset credits**, according to rules you explicitly enable. Version 1.1.0. Independent software; not an OpenAI product.
 
 ## Start
 
 1. Keep `CodexResetGuard.exe` and `CodexResetGuard.exe.config` together. Double-click the executable.
 2. Wait for your account, weekly usage, and reset credits to load.
-3. On **Reset credits**, check the credits this app may use. **Allow all shown** selects the credits currently displayed. Future credits remain unchecked.
-4. On **Automatic resets**, choose the usage window, threshold, enabled period, maximum resets, reserve count, and credit selection.
+3. On **Credits**, check the credits this app may use. **Allow all shown** selects the credits currently displayed. Future credits remain unchecked.
+4. On **Automation**, choose the usage window, threshold, enabled period, maximum resets, reserve count, and credit selection.
 5. Select **Enable automatic resets**. This is the opt-in that permits real redemptions under the displayed rules. No additional confirmation is required when the threshold is reached.
 
 Defaults: **off**, weekly usage, **95% used**, 12 hours, maximum **one reset**, keep **one credit** in reserve, and earliest expiry among checked credits. No credits are initially selected. You can lower the reserve to zero if you want the selected final credit to be usable.
 
 Left-click the tray icon to open settings; right-click for Enable/Pause, threshold presets, credits, refresh, and Quit. Closing settings keeps the tray app running. A gray icon means automatic resets are off, green means enabled, and amber means a reset is awaiting confirmation.
 
-Pause before editing rules. **Save rules** does not enable automatic resets. Starting a new enabled period creates a new reset allowance. The saved deadline and allowance survive an app restart. Quit stops monitoring; it does not erase an unexpired opt-in. **Connection → Launch in the tray when I sign in to Windows** is a separate, initially disabled setting.
+Pause before editing rules. **Save rules** does not enable automatic resets. Starting a new enabled period creates a new reset allowance. The saved deadline and allowance survive an app restart. Quit stops monitoring; it does not erase an unexpired opt-in. **Settings → Launch in the tray at Windows sign-in** is a separate, initially disabled setting.
+
+## Appearance and navigation
+
+Version 1.1 adds a compact usage summary, flat navigation, and matching tray menus. In **Settings → Appearance**, choose **Use Windows setting**, **Light**, or **Dark**. Appearance is applied immediately and stored separately in `%LOCALAPPDATA%\CodexResetGuard\appearance.json`; it never enables resets or changes your saved rules. With the Windows setting selected, the app follows changes to the system's app theme.
+
+The main action becomes **Pause automatic resets** while enabled, including when a request is pending. After pausing, **Review pending reset** opens Activity. That page offers **Reconcile pending reset** for the original request. Disabled controls remain readable in both themes.
+
+Use **F5** to refresh, **Ctrl+Tab** / **Ctrl+Shift+Tab** to change pages, and **Escape** to hide the window in the tray. The 95% and 99% buttons are editing shortcuts; selecting one does not save or enable it. Reset budgets and reserves must be whole numbers.
 
 ## Choosing a threshold
 
@@ -30,7 +38,7 @@ Polling uses 60 seconds while disabled, 30 seconds while enabled, and 15 seconds
 - Selecting a specific credit never falls back to a different credit when that selection becomes unavailable.
 - A reserve is applied to the server-reported available count. A count-only response never permits an arbitrary redemption.
 - A reset request is saved before sending and always includes a specific credit ID and an idempotency key. A timeout preserves that exact request. Automatic retries reuse it only while fresh usage, reserve, expiry, and authorization rules still permit spending, at least 60 seconds apart, at most three sends before pausing. Changed or unknown conditions pause automatic recovery and preserve the journal. Pause blocks retries too.
-- **Activity → Retry pending request** explicitly reconciles the original pending attempt. If it was never applied, this can use that selected credit now even if usage dropped, the reserve changed, or the enabled period ended; the app asks you to confirm this before sending. It never authorizes a different credit or starts another enabled period. A lost response after a successful reset may require this manual reconciliation.
+- **Activity → Reconcile pending reset** explicitly reconciles the original pending attempt. If it was never applied, this can use that selected credit now even if usage dropped, the reserve changed, or the enabled period ended; the app asks you to confirm this before sending. It never authorizes a different credit or starts another enabled period. A lost response after a successful reset may require this manual reconciliation.
 - Acknowledged resets count against the allowance once. Another credit cannot be used until fresh usage decreases and the selected credit is no longer available. There is also a ten-minute cooldown after an acknowledged reset and a two-minute cooldown after any attempted reset.
 - A corrupt or unwritable journal stops automatic operation. Do not delete a pending journal to work around an ambiguous request: doing so loses its idempotency record.
 - An account change pauses automatic resets. A pending reset must be reconciled while signed in to its original account.
@@ -40,7 +48,7 @@ The server decides eligibility. A full banked reset changes the weekly reset dat
 ## Requirements and privacy
 
 - Windows 10/11 x64 with .NET Framework 4.8 or newer. No separate UI runtime, Node, or Python is needed for this app.
-- Installed official Codex CLI **0.147.0 or newer**, signed in to ChatGPT. Common CLI installation paths are detected. An executable can be selected in Connection settings.
+- Installed official Codex CLI **0.147.0 or newer**, signed in to ChatGPT. Common CLI installation paths are detected. An executable can be selected in Settings.
 - File-backed ChatGPT identity in Codex's existing `auth.json`. Keyring-only, API-key-only, and unidentified accounts can’t be armed in this version. The app respects `CODEX_HOME`.
 - The PC must be awake and the tray app running. It does not wake the computer or prevent sleep.
 

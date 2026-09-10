@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 $compilerPath = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (-not (Test-Path -LiteralPath $compilerPath)) { throw '.NET Framework 4.8 and its C# compiler are required.' }
 New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
-$sourceFiles = @('Models.cs','Policy.cs','StateStore.cs','ResetEngine.cs','CodexClient.cs','GuardForm.cs','TrayApplication.cs','Program.cs','UiSmoke.cs') | ForEach-Object { Join-Path $PSScriptRoot $_ }
+$sourceFiles = @('Models.cs','Policy.cs','StateStore.cs','ResetEngine.cs','CodexClient.cs','ModernControls.cs','GuardForm.cs','TrayApplication.cs','Program.cs','UiSmoke.cs') | ForEach-Object { Join-Path $PSScriptRoot $_ }
 $references = @('/r:System.dll','/r:System.Core.dll','/r:System.Windows.Forms.dll','/r:System.Drawing.dll','/r:System.Web.Extensions.dll')
 $applicationPath = Join-Path $OutDir 'CodexResetGuard.exe'
 $compilerArgs = @('/nologo','/target:winexe','/platform:x64','/optimize+','/warn:4','/utf8output',('/win32manifest:' + (Join-Path $PSScriptRoot 'app.manifest')),('/out:' + $applicationPath)) + $references + $sourceFiles
