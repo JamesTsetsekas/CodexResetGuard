@@ -14,3 +14,5 @@ Requires Windows 10/11 x64, .NET Framework 4.8+, and the official Codex CLI 0.14
 Codex reports whole percentages, so 99.99% waits for a reported 100%. Polling cannot guarantee uninterrupted sessions. This app does not purchase credits, switch accounts, or resume interrupted tasks. It is independent software, unaffiliated with OpenAI.
 
 Validation uses an isolated fake reset service and real stdio transport. No real reset credits were consumed during development.
+
+**Demo videos:** `codex-reset-guard-x-square.mp4` is formatted for social feeds; `codex-reset-guard-landscape.mp4` is 16:9. Both demonstrate the real app UI with synthetic data and original instrumental music. See `DEMO-LICENSE.txt` for reuse terms. Video files are separate from the app ZIP.

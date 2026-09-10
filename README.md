@@ -8,6 +8,10 @@
 
 **[Download for Windows x64](https://github.com/JamesTsetsekas/CodexResetGuard/releases/latest)** · [User guide](docs/USER-GUIDE.md) · [Report a bug](https://github.com/JamesTsetsekas/CodexResetGuard/issues/new/choose)
 
+[![Watch the 37-second demo](docs/images/demo-poster.png)](https://github.com/JamesTsetsekas/CodexResetGuard/releases/download/v1.0.0/codex-reset-guard-x-square.mp4)
+
+**[Watch the 37-second demo with original music](https://github.com/JamesTsetsekas/CodexResetGuard/releases/download/v1.0.0/codex-reset-guard-x-square.mp4)** — actual Windows UI, isolated sample account, no real credits used.
+
 ![Automatic reset settings with synthetic account data](docs/images/automatic-resets.png)
 
 *Real app, sample account. Automatic resets start disabled.*

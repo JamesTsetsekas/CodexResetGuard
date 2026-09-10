@@ -3,6 +3,7 @@ using System.Drawing;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,11 +28,18 @@ namespace CodexResetGuard
                 try { SetProcessDpiAwareness(2); } catch { }
                 Application.EnableVisualStyles(); Application.SetCompatibleTextRenderingDefault(false);
                 if (args.Length == 2 && args[0] == "--ui-smoke") return UiSmoke.Run(args[1]);
-                string user = Data.Hash(WindowsIdentity.GetCurrent().User.Value).Substring(0, 24);
-                bool owns;
-                using (var mutex = new Mutex(true, "Local\\CodexResetGuard." + user, out owns))
+                var userSid = WindowsIdentity.GetCurrent().User;
+                string user = Data.Hash(userSid.Value).Substring(0, 24);
+                // The journal is per user, shared by that user's Windows sessions.
+                // Global mutex/events need no SeCreateGlobalPrivilege; restrict their ACLs to this user.
+                var mutexSecurity = new MutexSecurity();
+                mutexSecurity.AddAccessRule(new MutexAccessRule(userSid, MutexRights.FullControl, AccessControlType.Allow));
+                var eventSecurity = new EventWaitHandleSecurity();
+                eventSecurity.AddAccessRule(new EventWaitHandleAccessRule(userSid, EventWaitHandleRights.FullControl, AccessControlType.Allow));
+                bool owns, eventCreated;
+                using (var mutex = new Mutex(true, "Global\\CodexResetGuard." + user, out owns, mutexSecurity))
                 {
-                    var showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "Local\\CodexResetGuard.Show." + user);
+                    var showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "Global\\CodexResetGuard.Show." + user, out eventCreated, eventSecurity);
                     if (!owns) { showEvent.Set(); showEvent.Dispose(); return 0; }
                     try
                     {
