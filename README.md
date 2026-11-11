@@ -1,22 +1,24 @@
-# Codex Reset Guard
+# Reset Guard
 
-**Your banked Codex resets, used by your rules.** A small, portable Windows tray app that redeems existing reset credits when usage reaches a threshold you choose. It can also watch your Claude plan usage and tell you when a Claude limit reset is worth using.
+**Usage and reset control for Codex and Claude.** A small, portable Windows tray app that redeems existing reset credits when usage reaches a threshold you choose. It can also watch your Claude plan usage and tell you when a Claude limit reset is worth using.
 
-[![Windows build](https://github.com/JamesTsetsekas/CodexResetGuard/actions/workflows/build.yml/badge.svg)](https://github.com/JamesTsetsekas/CodexResetGuard/actions/workflows/build.yml)
-[![Latest release](https://img.shields.io/github/v/release/JamesTsetsekas/CodexResetGuard)](https://github.com/JamesTsetsekas/CodexResetGuard/releases/latest)
+[![Windows build](https://github.com/JamesTsetsekas/ResetGuard/actions/workflows/build.yml/badge.svg)](https://github.com/JamesTsetsekas/ResetGuard/actions/workflows/build.yml)
+[![Latest release](https://img.shields.io/github/v/release/JamesTsetsekas/ResetGuard)](https://github.com/JamesTsetsekas/ResetGuard/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-**[Download for Windows x64](https://github.com/JamesTsetsekas/CodexResetGuard/releases/latest)** · [User guide](docs/USER-GUIDE.md) · [Report a bug](https://github.com/JamesTsetsekas/CodexResetGuard/issues/new/choose)
+**[Download for Windows x64](https://github.com/JamesTsetsekas/ResetGuard/releases/latest)** · [User guide](docs/USER-GUIDE.md) · [Report a bug](https://github.com/JamesTsetsekas/ResetGuard/issues/new/choose)
 
 | Light | Dark |
 | --- | --- |
 | ![Light appearance with synthetic account data](docs/images/automatic-resets.png) | ![Dark appearance with synthetic account data](docs/images/automatic-resets-dark.png) |
 
-*The compact interface, with a sample account. Automatic resets start disabled.*
+*Current interface with synthetic account data. Automatic resets start disabled.*
+
+![Claude usage monitoring with synthetic data](docs/images/claude.png)
 
 Choose **Settings → Appearance → Light, Dark, or Use Windows setting**. Appearance changes take effect immediately and leave your reset rules untouched. Use **F5** to refresh, **Ctrl+Tab** to move between pages, and **Escape** to return to the tray.
 
-[Watch the 37-second reset demo with original music](https://github.com/JamesTsetsekas/CodexResetGuard/releases/download/v1.0.0/codex-reset-guard-x-square.mp4). It shows the original v1.0 interface with synthetic data; the basic reset workflow is unchanged.
+[Watch the 37-second reset demo with original music](https://github.com/JamesTsetsekas/ResetGuard/releases/download/v1.0.0/codex-reset-guard-x-square.mp4). It shows the original v1.0 interface with synthetic data; the basic reset workflow is unchanged.
 
 ## What it does
 
@@ -34,7 +36,7 @@ This redeems reset credits you already have. It does not purchase credits, switc
 ## Get started
 
 1. Install the official [Codex CLI](https://github.com/openai/codex) **0.147.0 or newer** and sign in with your ChatGPT account.
-2. Download and extract the release ZIP. Keep `CodexResetGuard.exe` and its `.config` file together, then open the executable.
+2. Download and extract the release ZIP. Keep `ResetGuard.exe` and its `.config` file together, then open the executable.
 3. In **Credits**, check which credits the app may use.
 4. In **Automation**, set the threshold, enabled period, maximum resets, and reserve. Click **Enable automatic resets**.
 
@@ -60,6 +62,8 @@ Only checked, available full-reset credits are eligible. A specific-credit selec
 
 The app starts its own hidden official `codex app-server --listen stdio://` process and uses the account APIs to read usage and redeem the selected credit. It never starts a model turn or replaces the running Codex desktop app.
 
+Formerly **Codex Reset Guard**. Existing settings, credit permissions, and pending recovery journals are retained. The data folder keeps its original name for compatibility. If launch at sign-in was enabled, turn it off in the old copy before replacing it, then enable it in the new copy.
+
 Settings and the recovery journal stay in `%LOCALAPPDATA%\CodexResetGuard\state.json`. The existing Codex auth file is read in memory to bind automation to a hashed account identity. Reset Guard does not store tokens, send telemetry, or use a third-party account service. When Claude monitoring is turned on, it also reads Claude Code's sign-in (`~\.claude\.credentials.json`, plus the account email from `~\.claude.json`) in memory and calls Anthropic's usage endpoint at `api.anthropic.com` directly. The official Codex process handles its normal authentication. See the [privacy and recovery details](docs/USER-GUIDE.md).
 
 ## Build and test
@@ -68,7 +72,7 @@ No package restore or separate .NET SDK is required. From Windows PowerShell:
 
 ```powershell
 .\source\Build.ps1 -OutDir .\build
-.\build\CodexResetGuard.Tests.exe
+.\build\ResetGuard.Tests.exe
 ```
 
 The build uses the C# compiler included with .NET Framework. Tests use an isolated fake reset service, including the actual stdio transport. They do not consume credits. To produce the tested portable ZIP and SHA-256 manifest:

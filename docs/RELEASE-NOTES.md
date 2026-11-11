@@ -1,4 +1,6 @@
-**Codex Reset Guard 1.2.0** adds reset timing modes, Claude usage alerts, and a round of reliability fixes for the reset engine, transport, and tray.
+**Reset Guard 1.2.0** adds reset timing modes, Claude usage alerts, and a round of reliability fixes for the reset engine, transport, and tray.
+
+Renamed from Codex Reset Guard to Reset Guard, with updated screenshots and portable executable names. Existing settings and pending recovery remain compatible.
 
 ### New
 
@@ -38,7 +40,7 @@
 - A spent specific credit is cleared from Credit order, so the next Enable doesn't fail. The Codex handshake now reports the real app version.
 - Release script: test failures print their details, the UI smoke runs before packaging, the version is checked in `Program.cs` (both assembly attributes and `Program.Version`), `app.manifest` and these notes, and successful runs clean up their staging folder.
 
-**Download:** extract `CodexResetGuard-1.2.0-windows-x64.zip` and run `CodexResetGuard.exe`. Keep its `.config` file beside it. Automatic resets start **off** on a fresh install. To upgrade, quit the existing tray instance and replace the files in its portable folder. Version 1.1 settings, allowed credits, and any pending request survive the upgrade; new settings start at their defaults (threshold timing, 15-minute margin, Claude monitoring off).
+**Download:** extract `ResetGuard-1.2.0-windows-x64.zip` and run `ResetGuard.exe`. Keep its `.config` file beside it. Automatic resets start **off** on a fresh install. To upgrade, quit the existing tray instance and replace the files in its portable folder. Version 1.1 settings, allowed credits, and any pending request survive the upgrade; new settings start at their defaults (threshold timing, 15-minute margin, Claude monitoring off).
 
 Requires Windows 10/11 x64, .NET Framework 4.8+, and the official Codex CLI 0.147.0+ signed in to ChatGPT with file-backed authentication. Claude monitoring additionally requires Claude Code signed in with a Claude subscription. The executable is unsigned. `SHA256SUMS.txt` provides the ZIP checksum; the ZIP includes individual file checksums and source.
 

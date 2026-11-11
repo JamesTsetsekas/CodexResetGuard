@@ -26,6 +26,6 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          $zipPath = Join-Path 'artifacts' ('CodexResetGuard-' + $env:RELEASE_TAG.Substring(1) + '-windows-x64.zip')
-          gh release create $env:RELEASE_TAG $zipPath artifacts/SHA256SUMS.txt --verify-tag --title ('Codex Reset Guard ' + $env:RELEASE_TAG) --notes-file docs/RELEASE-NOTES.md
+          $zipPath = Join-Path 'artifacts' ('ResetGuard-' + $env:RELEASE_TAG.Substring(1) + '-windows-x64.zip')
+          gh release create $env:RELEASE_TAG $zipPath artifacts/SHA256SUMS.txt --verify-tag --title ('Reset Guard ' + $env:RELEASE_TAG) --notes-file docs/RELEASE-NOTES.md
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

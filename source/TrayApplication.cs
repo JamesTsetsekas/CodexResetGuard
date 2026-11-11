@@ -63,7 +63,7 @@ namespace CodexResetGuard
             CreateIcons();
             // Create a Windows Forms synchronization context before starting asynchronous work.
             form = NewForm(); IntPtr handle = form.Handle;
-            tray = new NotifyIcon { Icon = offIcon, Visible = true, Text = "Codex Reset Guard" };
+            tray = new NotifyIcon { Icon = offIcon, Visible = true, Text = "Reset Guard" };
             tray.DoubleClick += delegate { ShowSettings(); };
             tray.MouseClick += delegate(object sender, MouseEventArgs e) { if (e.Button == MouseButtons.Left) ShowSettings(); };
             tray.ContextMenuStrip = new ContextMenuStrip();
@@ -228,7 +228,7 @@ namespace CodexResetGuard
             if (engine.State.Enabled || engine.State.Pending != null || engine.RequestInFlight)
             {
                 string why = engine.RequestInFlight ? "A reset request is in progress." : engine.State.Pending != null ? "A reset is awaiting confirmation." : "Automatic resets are on.";
-                if (MessageBox.Show(form, why + " Quitting stops monitoring until Reset Guard runs again. Quit anyway?", "Codex Reset Guard", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes) return;
+                if (MessageBox.Show(form, why + " Quitting stops monitoring until Reset Guard runs again. Quit anyway?", "Reset Guard", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes) return;
             }
             exiting = true; SystemEvents.UserPreferenceChanged -= PreferenceChanged; timer.Stop(); tray.Visible = false; tray.Dispose(); if (form != null) form.Dispose();
             foreach (var icon in new[] { offIcon, onIcon, pendingIcon, alertIcon }) icon.Dispose(); ExitThread();

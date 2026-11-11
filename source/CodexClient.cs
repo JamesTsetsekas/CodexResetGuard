@@ -143,7 +143,7 @@ namespace CodexResetGuard
         }
         public async Task InitializeAsync()
         {
-            await rpc.CallAsync("initialize", new { clientInfo = new { name = "codex_reset_guard", title = "Codex Reset Guard", version = Program.Version }, capabilities = new { experimentalApi = true } });
+            await rpc.CallAsync("initialize", new { clientInfo = new { name = "codex_reset_guard", title = "Reset Guard", version = Program.Version }, capabilities = new { experimentalApi = true } });
             rpc.Notify("initialized", new { });
         }
         public async Task<Snapshot> ReadAsync()

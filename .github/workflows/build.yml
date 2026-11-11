@@ -16,12 +16,12 @@ jobs:
         shell: powershell
         run: |
           .\source\Build.ps1 -OutDir .\build
-          .\build\CodexResetGuard.Tests.exe
+          .\build\ResetGuard.Tests.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Verify both themes and UI controls with a fake account
         shell: powershell
         run: |
-          $process = Start-Process .\build\CodexResetGuard.exe -ArgumentList '--ui-smoke', 'build\ui' -WindowStyle Hidden -Wait -PassThru
+          $process = Start-Process .\build\ResetGuard.exe -ArgumentList '--ui-smoke', 'build\ui' -WindowStyle Hidden -Wait -PassThru
           if ($process.ExitCode -ne 0) {
             Get-Content .\build\ui\ui-smoke-error.txt
             exit 1
@@ -31,8 +31,8 @@ jobs:
         with:
           name: windows-x64
           path: |
-            build/CodexResetGuard.exe
-            build/CodexResetGuard.exe.config
+            build/ResetGuard.exe
+            build/ResetGuard.exe.config
             build/ui/*.json
             build/ui/*.png
           if-no-files-found: error
