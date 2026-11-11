@@ -1,17 +1,29 @@
 param(
-    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version = '1.1.0',
+    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version = '1.2.0',
     [string]$OutDir = (Join-Path $PSScriptRoot '..\artifacts')
 )
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
 $OutDir = [IO.Path]::GetFullPath($OutDir)
 $assemblySource = Get-Content -LiteralPath (Join-Path $repoRoot 'source\Program.cs') -Raw
-if (-not $assemblySource.Contains('AssemblyVersion("' + $Version + '.0")')) { throw 'Release version does not match AssemblyVersion.' }
+if (-not $assemblySource.Contains('AssemblyVersion("' + $Version + '.0")') -or -not $assemblySource.Contains('AssemblyFileVersion("' + $Version + '.0")')) { throw 'Release version does not match AssemblyVersion and AssemblyFileVersion.' }
+if (-not $assemblySource.Contains('Version = "' + $Version + '"')) { throw 'Release version does not match Program.Version.' }
+$manifestSource = Get-Content -LiteralPath (Join-Path $repoRoot 'source\app.manifest') -Raw
+if (-not $manifestSource.Contains('version="' + $Version + '.0"')) { throw 'Release version does not match app.manifest.' }
+$notesSource = Get-Content -LiteralPath (Join-Path $repoRoot 'docs\RELEASE-NOTES.md') -Raw
+if (-not $notesSource.Contains('Codex Reset Guard ' + $Version)) { throw 'docs/RELEASE-NOTES.md does not describe this version.' }
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 $buildPath = Join-Path $OutDir 'build'
 & (Join-Path $repoRoot 'source\Build.ps1') -OutDir $buildPath
-$testOutput = & (Join-Path $buildPath 'CodexResetGuard.Tests.exe') 2>&1
-if ($LASTEXITCODE -ne 0) { $testOutput | Write-Output; throw 'Release tests failed.' }
+# Windows PowerShell turns native stderr into terminating errors under 'Stop'; capture it first so failures are reported.
+$ErrorActionPreference = 'Continue'
+$testOutput = & (Join-Path $buildPath 'CodexResetGuard.Tests.exe') 2>&1 | ForEach-Object { "$_" }
+$testExit = $LASTEXITCODE
+$ErrorActionPreference = 'Stop'
+if ($testExit -ne 0) { $testOutput | Write-Output; throw 'Release tests failed.' }
+$smokePath = Join-Path $buildPath 'ui'
+$smoke = Start-Process -FilePath (Join-Path $buildPath 'CodexResetGuard.exe') -ArgumentList @('--ui-smoke', ('"' + $smokePath + '"')) -WindowStyle Hidden -Wait -PassThru
+if ($smoke.ExitCode -ne 0) { Get-Content -LiteralPath (Join-Path $smokePath 'ui-smoke-error.txt') -ErrorAction SilentlyContinue | Write-Output; throw 'Release UI smoke checks failed.' }
 $packageName = 'CodexResetGuard-' + $Version
 $stagingRoot = Join-Path $OutDir ('staging-' + [Guid]::NewGuid().ToString('N'))
 $packagePath = Join-Path $stagingRoot $packageName
@@ -38,6 +50,7 @@ $manifest = Get-ChildItem -LiteralPath $packagePath -File -Recurse | Sort-Object
 [IO.File]::WriteAllLines((Join-Path $packagePath 'SHA256SUMS.txt'), [string[]]$manifest, $utf8NoBom)
 $zipPath = Join-Path $OutDir ($packageName + '-windows-x64.zip')
 Compress-Archive -LiteralPath $packagePath -DestinationPath $zipPath -Force
+Remove-Item -LiteralPath $stagingRoot -Recurse -Force
 $zipHash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant() + '  ' + [IO.Path]::GetFileName($zipPath)
 [IO.File]::WriteAllText((Join-Path $OutDir 'SHA256SUMS.txt'), $zipHash + [Environment]::NewLine, $utf8NoBom)
 $testOutput | Write-Output

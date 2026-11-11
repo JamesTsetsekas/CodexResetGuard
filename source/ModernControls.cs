@@ -56,7 +56,14 @@ namespace CodexResetGuard
             g.SmoothingMode = SmoothingMode.AntiAlias;
             using (var path = Round(bounds, radius)) using (var brush = new SolidBrush(fill)) { g.FillPath(brush, path); if (border != Color.Transparent) using (var pen = new Pen(border)) g.DrawPath(pen, path); }
         }
-        public static Font Font(float size, bool bold) { return new Font(bold ? "Segoe UI Semibold" : "Segoe UI", size, FontStyle.Regular); }
+        private static readonly System.Collections.Generic.Dictionary<string, Font> fonts = new System.Collections.Generic.Dictionary<string, Font>();
+        // Shared, never disposed: controls keep references for the app's lifetime, so per-call fonts only leaked GDI handles.
+        public static Font Font(float size, bool bold)
+        {
+            string key = size.ToString(CultureInfo.InvariantCulture) + (bold ? "b" : ""); Font font;
+            lock (fonts) { if (!fonts.TryGetValue(key, out font)) fonts[key] = font = new Font(bold ? "Segoe UI Semibold" : "Segoe UI", size, FontStyle.Regular); }
+            return font;
+        }
         public static void Text(Graphics g, string text, Font font, Color color, Rectangle bounds, TextFormatFlags extra)
         { TextRenderer.DrawText(g, text ?? "", font, bounds, color, TextFormatFlags.NoPadding | TextFormatFlags.EndEllipsis | extra); }
         public static void Theme(Control control, Palette p)
@@ -180,7 +187,7 @@ namespace CodexResetGuard
         public decimal Value
         {
             get { return current; }
-            set { current = Math.Round(Math.Max(Minimum, Math.Min(Maximum, value)), DecimalPlaces); input.Text = current.ToString(DecimalPlaces == 0 ? "0" : "0.##", CultureInfo.CurrentCulture); if (ValueChanged != null) ValueChanged(this, EventArgs.Empty); }
+            set { current = Math.Round(Math.Max(Minimum, Math.Min(Maximum, value)), DecimalPlaces); input.Text = current.ToString(DecimalPlaces == 0 ? "0" : "0.##", CultureInfo.CurrentCulture); input.ForeColor = palette.Ink; if (ValueChanged != null) ValueChanged(this, EventArgs.Empty); }
         }
         public ModernNumber(decimal min, decimal max, decimal value, int places)
         {
@@ -231,15 +238,17 @@ namespace CodexResetGuard
         }
         public NavigationTabs()
         {
-            navigation = new TableLayoutPanel { Dock = DockStyle.Top, Height = 46, ColumnCount = 4, RowCount = 1, Padding = new Padding(0, 0, 0, 10), Margin = Padding.Empty };
-            for (int i = 0; i < 4; i++) navigation.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+            navigation = new TableLayoutPanel { Dock = DockStyle.Top, Height = 46, ColumnCount = 0, RowCount = 1, Padding = new Padding(0, 0, 0, 10), Margin = Padding.Empty };
             body = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty };
             Controls.Add(body); Controls.Add(navigation);
         }
         public Panel AddPage(string title)
         {
             int index = TabPages.Count; var page = new Panel { Dock = DockStyle.Fill, Visible = index == 0, Margin = Padding.Empty }; TabPages.Add(page); body.Controls.Add(page);
-            var button = new ModernButton { Text = title, Tone = ButtonTone.Navigation, Selected = index == 0, Dock = DockStyle.Fill, Margin = new Padding(0, 0, index < 3 ? 5 : 0, 0), AccessibleRole = AccessibleRole.PageTab };
+            var button = new ModernButton { Text = title, Tone = ButtonTone.Navigation, Selected = index == 0, Dock = DockStyle.Fill, Margin = new Padding(0, 0, 5, 0), AccessibleRole = AccessibleRole.PageTab };
+            navigation.ColumnCount = index + 1; navigation.ColumnStyles.Clear();
+            for (int i = 0; i <= index; i++) navigation.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / (index + 1)));
+            foreach (var previous in buttons) previous.Margin = new Padding(0, 0, 5, 0); button.Margin = Padding.Empty;
             button.Click += delegate { SelectedIndex = index; }; buttons.Add(button); navigation.Controls.Add(button, index, 0); return page;
         }
         public void ApplyPalette(Palette p) { BackColor = body.BackColor = navigation.BackColor = p.Canvas; }
@@ -250,6 +259,7 @@ namespace CodexResetGuard
         public Snapshot Snapshot;
         public int Approved;
         public double Threshold = 95;
+        public string Window = "weekly";
         public UsageSummary() { DoubleBuffered = true; AccessibleRole = AccessibleRole.StaticText; }
         public void ApplyPalette(Palette p) { palette = p; BackColor = p.Canvas; Invalidate(); }
         protected override void OnPaint(PaintEventArgs e)
@@ -259,10 +269,13 @@ namespace CodexResetGuard
             PaintKit.Box(g, new RectangleF(1, 1, Width - 3, Height - 3), d(10), p.Surface, p.Border);
             int split = (int)(Width * .68), left = d(17), right = split - d(17);
             using (var line = new Pen(p.Border)) g.DrawLine(line, split, d(18), split, Height - d(18));
-            using (var small = PaintKit.Font(9, false)) using (var large = PaintKit.Font(29, true)) using (var caption = PaintKit.Font(8.5F, false))
+            var small = PaintKit.Font(9, false); var large = PaintKit.Font(29, true); var caption = PaintKit.Font(8.5F, false);
             {
-                var w = Snapshot == null ? null : Snapshot.Weekly;
-                PaintKit.Text(g, "Weekly usage", small, p.Muted, new Rectangle(left, d(12), right - left, d(20)), TextFormatFlags.SingleLine);
+                var weekly = Snapshot == null ? null : Snapshot.Weekly; var fiveHour = Snapshot == null ? null : Snapshot.Windows.Find(x => x.Minutes == 300);
+                // Chart the window the rules watch; for "either", whichever is closer to the trigger.
+                var w = Window == "fiveHour" ? fiveHour : Window == "either" && fiveHour != null && (weekly == null || fiveHour.Used > weekly.Used) ? fiveHour : weekly;
+                var other = w == weekly ? fiveHour : weekly;
+                PaintKit.Text(g, w != null && w.Minutes == 300 ? "5-hour usage" : "Weekly usage", small, p.Muted, new Rectangle(left, d(12), right - left, d(20)), TextFormatFlags.SingleLine);
                 PaintKit.Text(g, w == null ? "—" : Data.Percent(w.Used), large, p.Ink, new Rectangle(left - d(1), d(32), right - left, d(45)), TextFormatFlags.SingleLine);
                 string remaining = w == null ? "Waiting for Codex" : Data.Percent(100 - w.Used) + " remaining";
                 PaintKit.Text(g, remaining, small, p.Muted, new Rectangle(left, d(58), right - left, d(20)), TextFormatFlags.Right | TextFormatFlags.SingleLine);
@@ -272,8 +285,7 @@ namespace CodexResetGuard
                 using (var pen = new Pen(p.Muted)) { float marker = left + (float)(width * Threshold / 100); g.DrawLine(pen, marker, y - d(3), marker, y + d(8)); }
                 string reset = "Resets " + (w == null || !w.ResetsAt.HasValue ? "not reported" : ShortDate(w.ResetsAt.Value));
                 PaintKit.Text(g, reset, caption, p.Muted, new Rectangle(left, d(99), width, d(18)), TextFormatFlags.SingleLine);
-                var five = Snapshot == null ? null : Snapshot.Windows.Find(x => x.Minutes == 300);
-                PaintKit.Text(g, five == null ? "Trigger at " + Data.Percent(Threshold) + " used" : "5-hour usage  " + Data.Percent(five.Used) + " used", caption, p.Muted, new Rectangle(left, d(119), width, d(18)), TextFormatFlags.SingleLine);
+                PaintKit.Text(g, "Trigger at " + Data.Percent(Threshold) + (other == null ? " used" : " · " + (other.Minutes == 300 ? "5-hour " : "weekly ") + Data.Percent(other.Used) + " used"), caption, p.Muted, new Rectangle(left, d(119), width, d(18)), TextFormatFlags.SingleLine);
                 int creditX = split + d(18), creditWidth = Width - creditX - d(12);
                 PaintKit.Text(g, "Reset credits", small, p.Muted, new Rectangle(creditX, d(12), creditWidth, d(20)), TextFormatFlags.SingleLine);
                 PaintKit.Text(g, Snapshot == null || !Snapshot.AvailableCount.HasValue ? "—" : Snapshot.AvailableCount.Value.ToString(), large, p.Ink, new Rectangle(creditX, d(32), creditWidth, d(45)), TextFormatFlags.SingleLine);
@@ -281,7 +293,7 @@ namespace CodexResetGuard
                 PaintKit.Text(g, "Your banked resets", caption, p.Muted, new Rectangle(creditX, d(119), creditWidth, d(18)), TextFormatFlags.SingleLine);
             }
         }
-        public static string ShortDate(long time) { try { return new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddSeconds(time).ToLocalTime().ToString("MMM d · h:mm tt"); } catch (ArgumentOutOfRangeException) { return "not reported"; } }
+        public static string ShortDate(long time) { try { return new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddSeconds(time).ToLocalTime().ToString("MMM d · " + Data.ShortTimePattern); } catch (ArgumentOutOfRangeException) { return "not reported"; } }
     }
     internal sealed class ModernMenuRenderer : ToolStripProfessionalRenderer
     {
