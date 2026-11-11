@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace CodexResetGuard
@@ -20,6 +22,14 @@ namespace CodexResetGuard
                 if (state == null || state.Version != 1 || state.Rules == null || state.Rules.Validate() != null || state.History == null || state.UsedThisArm < 0) throw new InvalidDataException();
                 if (state.Pending != null && (String.IsNullOrWhiteSpace(state.Pending.Key) || String.IsNullOrWhiteSpace(state.Pending.CreditId) || String.IsNullOrWhiteSpace(state.Pending.AccountKey) || state.Pending.BeforeWindows == null)) throw new InvalidDataException();
                 if (state.Enabled && (String.IsNullOrWhiteSpace(state.AccountKey) || String.IsNullOrWhiteSpace(state.ArmId))) throw new InvalidDataException();
+                // Fail closed on incomplete authorization: a timed period must carry its deadline, and counters cannot be negative.
+                if (state.Enabled && state.Rules.ArmHours != 0 && state.ArmedUntil <= 0) throw new InvalidDataException();
+                if (state.NoOpStreak < 0 || state.LastAttemptAt < 0 || state.LastSuccessAt < 0 || state.History.Any(h => h == null)) throw new InvalidDataException();
+                if (state.RefreshBarrier != null && state.RefreshBarrier.Any(w => w == null)) throw new InvalidDataException();
+                if (state.Pending != null && (state.Pending.Attempts < 0 || state.Pending.BeforeCount < 0)) throw new InvalidDataException();
+                // Claude monitoring never spends anything, so unreadable optional settings fall back to defaults.
+                if (state.Claude == null || state.Claude.Validate() != null) state.Claude = new ClaudeSettings();
+                if (state.Claude.AlertedKeys == null) state.Claude.AlertedKeys = new List<string>();
                 return state;
             }
             catch (Exception ex) { throw new GuardException("Saved state could not be read. The app will not run automatic resets until the state file is recovered. Your file has been left intact.", ex); }

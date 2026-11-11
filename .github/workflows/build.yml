@@ -34,4 +34,5 @@ jobs:
             build/CodexResetGuard.exe
             build/CodexResetGuard.exe.config
             build/ui/*.json
+            build/ui/*.png
           if-no-files-found: error

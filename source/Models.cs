@@ -34,9 +34,10 @@ namespace CodexResetGuard
         public static string LocalTime(long? value)
         {
             if (!value.HasValue) return "Not reported";
-            try { return new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddSeconds(value.Value).ToLocalTime().ToString("MMM d, yyyy  h:mm tt"); }
+            try { return new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddSeconds(value.Value).ToLocalTime().ToString("MMM d, yyyy · " + ShortTimePattern); }
             catch (ArgumentOutOfRangeException) { return "Not reported"; }
         }
+        public static string ShortTimePattern { get { return System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.ShortTimePattern; } }
         public static string Percent(double? n) { return n.HasValue ? n.Value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "%" : "Unavailable"; }
     }
 
@@ -66,6 +67,8 @@ namespace CodexResetGuard
         public long FetchedAt { get; set; }
         public int? AvailableCount { get; set; }
         public bool DetailsKnown { get; set; }
+        // False when any credit row was malformed and skipped: absence from the list then proves nothing.
+        public bool CreditsComplete { get; set; }
         public bool IdentityVerified { get; set; }
         public List<UsageWindow> Windows { get; set; }
         public List<ResetCredit> Credits { get; set; }
@@ -90,13 +93,13 @@ namespace CodexResetGuard
             var count = Data.Integer(summary, "availableCount");
             if (count.HasValue && count <= Int32.MaxValue) s.AvailableCount = (int)count.Value;
             var rows = Data.Get(summary, "credits") as object[];
-            s.DetailsKnown = rows != null;
+            s.DetailsKnown = rows != null; s.CreditsComplete = rows != null;
             if (rows != null) foreach (var item in rows)
             {
                 var row = Data.Map(item);
                 var c = new ResetCredit { Id = Data.Text(row, "id"), Type = Data.Text(row, "resetType"), Status = Data.Text(row, "status"), Title = Data.Text(row, "title"), GrantedAt = Data.Integer(row, "grantedAt") ?? 0, ExpiresAt = Data.Integer(row, "expiresAt") };
-                if (Data.Get(row, "expiresAt") != null && !c.ExpiresAt.HasValue) continue;
-                if (!String.IsNullOrWhiteSpace(c.Id) && !s.Credits.Any(x => x.Id == c.Id)) s.Credits.Add(c);
+                if ((Data.Get(row, "expiresAt") != null && !c.ExpiresAt.HasValue) || String.IsNullOrWhiteSpace(c.Id)) { s.CreditsComplete = false; continue; }
+                if (!s.Credits.Any(x => x.Id == c.Id)) s.Credits.Add(c);
             }
             return s;
         }
@@ -110,7 +113,12 @@ namespace CodexResetGuard
         public int ReserveCredits { get; set; }
         public List<string> AllowedCreditIds { get; set; }
         public string PreferredCreditId { get; set; }
-        public Rules() { Threshold = 95; Window = "weekly"; ArmHours = 12; MaximumResets = 1; ReserveCredits = 1; AllowedCreditIds = new List<string>(); }
+        // threshold: reset at the threshold. predictive: from the threshold, reset just before the projected limit.
+        // limit: wait for a reported 100%, then until Codex is idle or the grace period ends.
+        public string Trigger { get; set; }
+        public int GraceMinutes { get; set; }
+        public int SkipNearResetMinutes { get; set; }
+        public Rules() { Threshold = 95; Window = "weekly"; ArmHours = 12; MaximumResets = 1; ReserveCredits = 1; AllowedCreditIds = new List<string>(); Trigger = "threshold"; GraceMinutes = 3; SkipNearResetMinutes = 15; }
         public string Validate()
         {
             if (Double.IsNaN(Threshold) || Double.IsInfinity(Threshold) || Threshold < 1 || Threshold > 100) return "Choose a threshold between 1% and 100%.";
@@ -118,6 +126,9 @@ namespace CodexResetGuard
             if (MaximumResets < 1 || MaximumResets > 100 || ReserveCredits < 0 || ReserveCredits > 100) return "Reset allowances must be between 1 and 100; reserves between 0 and 100.";
             if (ArmHours < 0 || ArmHours > 168) return "Choose an arming period of up to seven days, or until paused.";
             if (AllowedCreditIds == null) return "Choose which credits may be used.";
+            if (Trigger != "threshold" && Trigger != "predictive" && Trigger != "limit") return "Choose a supported reset timing.";
+            if (GraceMinutes < 0 || GraceMinutes > 30) return "Choose an at-limit grace period of up to 30 minutes.";
+            if (SkipNearResetMinutes < 0 || SkipNearResetMinutes > 240) return "Choose a natural-reset margin of up to four hours.";
             return null;
         }
     }
@@ -152,10 +163,16 @@ namespace CodexResetGuard
         public int UsedThisArm { get; set; }
         public long LastAttemptAt { get; set; }
         public long LastSuccessAt { get; set; }
+        // Consecutive noCredit/nothingToReset outcomes; widens the attempt cooldown.
+        public int NoOpStreak { get; set; }
+        // Usage seen before the last reset that was confirmed without seeing usage refresh. No new credit is
+        // spent until Codex reports lower usage or a later reset time for one of these windows.
+        public List<UsageWindow> RefreshBarrier { get; set; }
         public PendingReset Pending { get; set; }
         public List<HistoryEntry> History { get; set; }
         public string CodexExecutable { get; set; }
-        public GuardState() { Version = 1; Rules = new Rules(); History = new List<HistoryEntry>(); }
+        public ClaudeSettings Claude { get; set; }
+        public GuardState() { Version = 1; Rules = new Rules(); History = new List<HistoryEntry>(); Claude = new ClaudeSettings(); }
         public void Record(string type, string detail, long now)
         {
             History.Insert(0, new HistoryEntry { At = now, Event = type, Detail = detail });

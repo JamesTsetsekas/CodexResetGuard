@@ -16,7 +16,16 @@ namespace CodexResetGuard
         public string Email;
         public static string CodexHome
         {
-            get { return Environment.GetEnvironmentVariable("CODEX_HOME") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex"); }
+            get
+            {
+                string custom = Environment.GetEnvironmentVariable("CODEX_HOME");
+                if (!String.IsNullOrWhiteSpace(custom))
+                {
+                    custom = Environment.ExpandEnvironmentVariables(custom.Trim().Trim('"'));
+                    try { if (Path.IsPathRooted(custom)) return Path.GetFullPath(custom); } catch (ArgumentException) { }
+                }
+                return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex");
+            }
         }
         public static AuthIdentity Read()
         {
@@ -46,28 +55,43 @@ namespace CodexResetGuard
     public sealed class CodexGateway : IAccountGateway
     {
         private readonly Func<string> configuredPath;
-        private string located;
+        private string located, lastConfigured;
         private string verifiedStamp;
         public string Executable { get { return located; } }
         public CodexGateway(Func<string> path) { configuredPath = path; }
         public async Task<IAccountSession> OpenAsync()
         {
             string configured = configuredPath();
-            if (!String.IsNullOrWhiteSpace(configured)) located = Path.GetFullPath(configured);
+            if (configured != lastConfigured) { located = null; verifiedStamp = null; lastConfigured = configured; } // Clearing the setting restores detection.
+            if (!String.IsNullOrWhiteSpace(configured))
+            {
+                try { located = Path.GetFullPath(configured.Trim().Trim('"')); }
+                catch (Exception ex) { throw new GuardException("The Codex executable path in Settings is not valid. Choose codex.exe again, or clear it to detect automatically.", ex); }
+            }
             else if (located == null || !File.Exists(located)) located = Locate();
-            if (String.IsNullOrWhiteSpace(located) || !File.Exists(located)) throw new GuardException("Codex CLI was not found. Install the official Codex CLI, or choose codex.exe in Connection settings.");
+            if (String.IsNullOrWhiteSpace(located) || !File.Exists(located)) throw new GuardException("Codex CLI was not found. Install the official Codex CLI, or choose codex.exe on the Settings page.");
             var info = new FileInfo(located);
             string stamp = located + "|" + info.Length + "|" + info.LastWriteTimeUtc.Ticks;
             if (verifiedStamp != stamp)
             {
                 string version = await Task.Run(() => VersionOutput(located));
-                var match = Regex.Match(version, @"codex-cli\s+(\d+)\.(\d+)\.");
-                if (!match.Success || (Int32.Parse(match.Groups[1].Value) == 0 && Int32.Parse(match.Groups[2].Value) < 147))
-                    throw new GuardException("Codex CLI 0.147.0 or newer is required for selecting a specific reset credit. Update the CLI before enabling automatic resets.");
+                if (!SupportedVersion(version))
+                    throw new GuardException("Codex CLI 0.147.0 or newer is required for selecting a specific reset credit (found: " + (VersionText(version) ?? "unknown version") + "). Update the CLI before enabling automatic resets.");
                 verifiedStamp = stamp;
             }
             var session = new CodexSession(located, null);
             try { await session.InitializeAsync(); return session; } catch { session.Dispose(); throw; }
+        }
+        internal static string VersionText(string output)
+        {
+            var match = Regex.Match(output ?? "", @"\b(\d+)\.(\d+)\.(\d+)\b"); return match.Success ? match.Value : null;
+        }
+        internal static bool SupportedVersion(string output)
+        {
+            var match = Regex.Match(output ?? "", @"codex(?:-cli)?[^\d\r\n]{0,20}(\d+)\.(\d+)\.(\d+)", RegexOptions.IgnoreCase);
+            int major, minor;
+            if (!match.Success || !Int32.TryParse(match.Groups[1].Value, out major) || !Int32.TryParse(match.Groups[2].Value, out minor)) return false;
+            return major > 0 || minor >= 147;
         }
         private static string VersionOutput(string path)
         {
@@ -119,7 +143,7 @@ namespace CodexResetGuard
         }
         public async Task InitializeAsync()
         {
-            await rpc.CallAsync("initialize", new { clientInfo = new { name = "codex_reset_guard", title = "Codex Reset Guard", version = "1.0.0" }, capabilities = new { experimentalApi = true } });
+            await rpc.CallAsync("initialize", new { clientInfo = new { name = "codex_reset_guard", title = "Codex Reset Guard", version = Program.Version }, capabilities = new { experimentalApi = true } });
             rpc.Notify("initialized", new { });
         }
         public async Task<Snapshot> ReadAsync()
@@ -152,6 +176,9 @@ namespace CodexResetGuard
         private readonly ChildJob job;
         private StreamWriter input;
         private readonly object sync = new object();
+        private readonly object writeLock = new object();
+        private bool closed;
+        private Task writeChain = Task.FromResult(true); // One FIFO writer: messages reach the helper in the order they were sent.
         private readonly Dictionary<int, TaskCompletionSource<Dictionary<string, object>>> calls = new Dictionary<int, TaskCompletionSource<Dictionary<string, object>>>();
         private int nextId;
         private bool disposed;
@@ -160,10 +187,14 @@ namespace CodexResetGuard
         {
             process = new Process();
             process.StartInfo = new ProcessStartInfo(path, arguments) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8, WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory };
+            // The helper must use the same Codex home whose identity Reset Guard checks.
+            if (!String.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("CODEX_HOME"))) process.StartInfo.EnvironmentVariables["CODEX_HOME"] = AuthIdentity.CodexHome;
             process.OutputDataReceived += OnLine;
             process.ErrorDataReceived += delegate { }; // Never persist server stderr or authentication material.
             process.EnableRaisingEvents = true;
-            process.Exited += delegate { FailAll("The local Codex connection closed."); };
+            // stdout EOF (null line) is the authoritative end: replies flushed just before exit are still delivered.
+            // The exit fallback only covers a descendant that keeps the pipe open.
+            process.Exited += delegate { Task.Delay(3000).ContinueWith(_ => Close("The local Codex connection closed.")); };
             try
             {
                 // .NET Framework bases redirected stdin on the parent console encoding.
@@ -178,14 +209,16 @@ namespace CodexResetGuard
         internal async Task<Dictionary<string, object>> CallAsync(string method, object parameters)
         {
             if (method != "initialize" && method != "account/read" && method != "account/rateLimits/read" && method != "account/rateLimitResetCredit/consume") throw new GuardException("This app only supports account usage and reset-credit operations.");
-            int id; var completion = new TaskCompletionSource<Dictionary<string, object>>();
+            int id; var completion = new TaskCompletionSource<Dictionary<string, object>>(TaskCreationOptions.RunContinuationsAsynchronously);
             lock (sync)
             {
-                if (disposed) throw new GuardException("The local Codex connection is closed.");
+                if (disposed || closed) throw new GuardException("The local Codex connection is closed.");
                 id = ++nextId; calls.Add(id, completion);
-                try { input.WriteLine(Data.Json(new { id = id, method = method, @params = parameters })); }
-                catch { calls.Remove(id); throw new GuardException("The request could not be delivered to the local Codex connection."); }
             }
+            string line = Data.Json(new { id = id, method = method, @params = parameters });
+            // Pipe writes run off the caller's thread, so a helper that stops reading cannot freeze the UI; the deadline covers delivery too.
+            var write = Enqueue(line);
+            var delivery = write.ContinueWith(t => { if (t.IsFaulted) { lock (sync) calls.Remove(id); completion.TrySetException(new GuardException("The request could not be delivered to the local Codex connection.")); } }, TaskContinuationOptions.ExecuteSynchronously);
             if (await Task.WhenAny(completion.Task, Task.Delay(TimeoutMilliseconds)) != completion.Task)
             {
                 lock (sync) calls.Remove(id);
@@ -196,20 +229,29 @@ namespace CodexResetGuard
         internal void Notify(string method, object parameters)
         {
             if (method != "initialized") throw new GuardException("Unsupported notification.");
-            lock (sync) { input.WriteLine(Data.Json(new { method = method, @params = parameters })); }
+            string line = Data.Json(new { method = method, @params = parameters });
+            Enqueue(line);
+        }
+        private Task Enqueue(string line)
+        {
+            lock (writeLock) { writeChain = writeChain.ContinueWith(_ => Write(line), TaskScheduler.Default); return writeChain; }
+        }
+        private void Write(string line)
+        {
+            if (disposed) throw new ObjectDisposedException("RpcClient");
+            input.WriteLine(line); // Runs only on the write chain, one message at a time.
         }
         private void OnLine(object sender, DataReceivedEventArgs e)
         {
+            if (e.Data == null) { Close("The local Codex connection closed."); return; }
             if (String.IsNullOrWhiteSpace(e.Data)) return;
             if (e.Data.Length > 4 * 1024 * 1024) { FailAll("Codex returned an oversized response."); return; }
             Dictionary<string, object> message; try { message = Data.Parse(e.Data); } catch { return; }
             var id = Data.Integer(message, "id"); if (!id.HasValue || id > Int32.MaxValue) return;
             if (Data.Text(message, "method") != null)
             {
-                lock (sync)
-                {
-                    if (!disposed) try { input.WriteLine(Data.Json(new { id = id.Value, error = new { code = -32601, message = "Unsupported client request" } })); } catch { }
-                }
+                string reply = Data.Json(new { id = id.Value, error = new { code = -32601, message = "Unsupported client request" } });
+                Enqueue(reply);
                 return;
             }
             TaskCompletionSource<Dictionary<string, object>> completion;
@@ -223,6 +265,11 @@ namespace CodexResetGuard
             else if (!message.ContainsKey("result")) completion.TrySetException(new GuardException("Codex returned an incomplete response."));
             else completion.TrySetResult(Data.Map(Data.Get(message, "result")));
         }
+        private void Close(string message)
+        {
+            lock (sync) closed = true;
+            FailAll(message);
+        }
         private void FailAll(string message)
         {
             TaskCompletionSource<Dictionary<string, object>>[] pending;
@@ -232,11 +279,12 @@ namespace CodexResetGuard
         public void Dispose()
         {
             lock (sync) { if (disposed) return; disposed = true; }
-            try { if (input != null) input.Dispose(); } catch { }
-            // Only the helper app-server process and its own job are stopped.
+            // Only the helper app-server process and its own job are stopped. The job is closed before stdin so a
+            // descendant holding the pipe dies too; stdin is released off this thread so the UI never waits on it.
             try { if (!process.HasExited && !process.WaitForExit(200)) process.Kill(); } catch { }
             if (job != null) job.Dispose();
-            FailAll("The local Codex connection was closed."); process.Dispose();
+            FailAll("The local Codex connection was closed.");
+            var writer = input; Task.Run(() => { try { if (writer != null) writer.Dispose(); } catch { } try { process.Dispose(); } catch { } });
         }
     }
     internal sealed class ChildJob : IDisposable

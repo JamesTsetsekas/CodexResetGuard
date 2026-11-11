@@ -19,10 +19,23 @@ namespace CodexResetGuard
             public Task<string> ConsumeAsync(PendingReset pending) { throw new GuardException("UI smoke mode cannot redeem credits."); }
             public void Dispose() { }
         }
+        private sealed class DemoClaude : IClaudeSource
+        {
+            public Task<ClaudeSnapshot> ReadAsync()
+            {
+                long now = Data.Now;
+                var c = new ClaudeSnapshot { AccountDisplay = "demo@example.invalid", Plan = "max", FetchedAt = now, ResetStatusKnown = true, ResetsEligible = true };
+                c.Windows.Add(new ClaudeWindow { Kind = "fiveHour", Name = "5-hour", Used = 62, ResetsAt = now + 2 * 3600 });
+                c.Windows.Add(new ClaudeWindow { Kind = "weekly", Name = "Weekly", Used = 31, ResetsAt = now + 3 * 86400 });
+                c.Windows.Add(new ClaudeWindow { Kind = "model", Name = "Fable", Used = 18, ResetsAt = now + 3 * 86400 });
+                c.Grants.Add(new ClaudeGrant { Id = "demo-grant", Label = "Limit reset", ResetsLeft = 1, EndsAt = now + 9 * 86400, RequiresLimit = true });
+                return Task.FromResult(c);
+            }
+        }
         internal static Snapshot Example()
         {
             long now = Data.Now;
-            var s = new Snapshot { AccountDisplay = "demo@example.invalid", AccountKey = "demo-account", IdentityVerified = true, Plan = "pro", FetchedAt = now, AvailableCount = 3, DetailsKnown = true };
+            var s = new Snapshot { AccountDisplay = "demo@example.invalid", AccountKey = "demo-account", IdentityVerified = true, Plan = "pro", FetchedAt = now, AvailableCount = 3, DetailsKnown = true, CreditsComplete = true };
             s.Windows.Add(new UsageWindow { Minutes = 10080, Used = 53, ResetsAt = now + 5 * 86400 });
             s.Credits.Add(new ResetCredit { Id = "demo-1", Title = "Full reset", Type = "codexRateLimits", Status = "available", ExpiresAt = now + 11 * 86400 });
             s.Credits.Add(new ResetCredit { Id = "demo-2", Title = "Full reset", Type = "codexRateLimits", Status = "available", ExpiresAt = now + 24 * 86400 });
@@ -36,7 +49,9 @@ namespace CodexResetGuard
             state.Record("Started", "Automatic resets are off. No reset credits have been used.", Data.Now);
             var engine = new ResetEngine(state, new MemoryStore(), new DemoGateway(), () => Data.Now);
             engine.CheckAsync(false).GetAwaiter().GetResult();
-            using (var form = new GuardForm(engine, delegate { }, delegate { }, delegate { }, true))
+            var claude = new ClaudeMonitor(new ClaudeSettings { Enabled = true }, new DemoClaude(), () => Data.Now, delegate { });
+            claude.CheckAsync().GetAwaiter().GetResult();
+            using (var form = new GuardForm(engine, claude, delegate { }, delegate { }, delegate { }, delegate { }, true))
             {
                 form.StartPosition = FormStartPosition.Manual; form.Location = new Point(-10000, -10000); form.ShowInTaskbar = false;
                 form.Show(); Application.DoEvents();
@@ -53,7 +68,7 @@ namespace CodexResetGuard
                 File.WriteAllText(Path.Combine(directory, "ui-checks.json"), Data.Json(new { passed = checks.Count, checks = checks, realResetRequests = 0 }));
                 form.Close();
             }
-            File.WriteAllText(Path.Combine(directory, "ui-smoke.json"), Data.Json(new { ok = true, tabsRendered = 8, resetRequestsSent = 0, syntheticAccount = true }));
+            File.WriteAllText(Path.Combine(directory, "ui-smoke.json"), Data.Json(new { ok = true, tabsRendered = 10, resetRequestsSent = 0, syntheticAccount = true }));
             return 0;
         }
         private static void Capture(GuardForm form, string directory, string name)
@@ -89,7 +104,10 @@ namespace CodexResetGuard
             check(engine.State.Rules.PreferredCreditId == "demo-2" && !engine.State.Enabled, "Save rules persists selections without enabling resets");
             Field<ModernButton>(form, "enable").PerformClick(); Application.DoEvents();
             check(engine.State.Enabled && engine.State.Rules.PreferredCreditId == "demo-2", "Enable button arms only the displayed saved rules");
-            check(!Field<Panel>(form, "rulesPanel").Enabled && !credits.Enabled && !Field<ModernButton>(form, "save").Enabled && theme.Enabled, "Enabled rules lock spending controls while appearance remains available");
+            bool wasChecked = credits.Items[1].Checked; credits.Items[1].Checked = !wasChecked;
+            check(!Field<Panel>(form, "rulesPanel").Enabled && credits.Items[1].Checked == wasChecked && !Field<ModernButton>(form, "save").Enabled && theme.Enabled, "Enabled rules lock spending controls while appearance remains available");
+            check(credits.Enabled, "Allowed credits stay readable and scrollable while locked");
+            form.Tabs.SelectedIndex = 1; Application.DoEvents(); Capture(form, directory, "dark-credits-locked"); form.Tabs.SelectedIndex = 0;
             Capture(form, directory, "dark-enabled");
             engine.State.Pending = new PendingReset { Key = "demo-pending-key", CreditId = "demo-2", AccountKey = "demo-account", Acknowledged = true, BeforeWindows = Example().Windows };
             form.UpdateView(); var action = Field<ModernButton>(form, "enable");
@@ -97,14 +115,18 @@ namespace CodexResetGuard
             action.PerformClick(); Application.DoEvents();
             check(!engine.State.Enabled && engine.State.Pending != null && action.Text == "Review pending reset", "Pause keeps the original pending request and exposes review");
             Capture(form, directory, "dark-pending"); action.PerformClick();
-            check(form.Tabs.SelectedIndex == 2 && Field<ModernButton>(form, "retryButton").Enabled, "Pending review opens Activity with reconciliation available");
-            engine.State.Pending = null; engine.State.Record("Reset verified", "Usage decreased and the selected credit is no longer available.", Data.Now);
+            check(form.Tabs.SelectedIndex == GuardForm.ActivityTab && Field<ModernButton>(form, "retryButton").Enabled, "Pending review opens Activity with reconciliation available");
+            engine.State.Pending = null; engine.State.LastSuccessAt = Data.Now; engine.State.Record("Reset verified", "Usage decreased and the selected credit is no longer available.", Data.Now);
             engine.Latest.Weekly.Used = 0; engine.Latest.AvailableCount = 2; engine.Latest.Credits.RemoveAll(c => c.Id == "demo-2"); form.UpdateView(); form.Tabs.SelectedIndex = 0;
             check(Field<Label>(form, "statusTitle").Text.StartsWith("Reset complete"), "Completed reset presents an explicit refreshed-usage status");
             Capture(form, directory, "dark-complete"); form.PreviewTheme(false); Capture(form, directory, "light-complete");
             engine.Latest.Credits.Clear(); engine.Latest.AvailableCount = 0; form.UpdateView(); form.Tabs.SelectedIndex = 1;
             Capture(form, directory, "light-empty");
             check(credits.Items.Count == 0 && !engine.State.Enabled, "Empty inventory remains unarmed with no selectable credits");
+            form.Tabs.SelectedIndex = GuardForm.ClaudeTab; form.UpdateView();
+            check(Field<Label>(form, "claudeUsage").Text.Contains("62%") && Field<Label>(form, "claudeResets").Text.Contains("1 reset held"), "Claude tab shows read-only usage and held resets");
+            check(Field<ModernButton>(form, "save").Enabled, "Claude settings stay editable independently of Codex rules");
+            Capture(form, directory, "light-claude");
             return checks;
         }
     }

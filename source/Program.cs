@@ -10,14 +10,17 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 
 [assembly: AssemblyTitle("Codex Reset Guard")]
-[assembly: AssemblyDescription("Opt-in Windows tray automation for existing Codex reset credits")]
-[assembly: AssemblyVersion("1.1.0.0")]
-[assembly: AssemblyFileVersion("1.1.0.0")]
+[assembly: AssemblyDescription("Opt-in Windows tray automation for existing Codex reset credits, with Claude usage alerts")]
+[assembly: AssemblyVersion("1.2.0.0")]
+[assembly: AssemblyFileVersion("1.2.0.0")]
+[assembly: AssemblyProduct("Codex Reset Guard")]
+[assembly: AssemblyCopyright("MIT License")]
 
 namespace CodexResetGuard
 {
     internal static class Program
     {
+        internal const string Version = "1.2.0";
         [STAThread]
         private static int Main(string[] args)
         {
@@ -47,7 +50,9 @@ namespace CodexResetGuard
                         var store = new StateStore(directory); var state = store.Load();
                         var gateway = new CodexGateway(() => state.CodexExecutable);
                         var engine = new ResetEngine(state, store, gateway, () => Data.Now);
-                        using (var app = new TrayApplication(engine, store, showEvent, args.Length == 0 || args[0] != "--tray")) Application.Run(app);
+                        ClaudeMonitor claude = null;
+                        claude = new ClaudeMonitor(state.Claude, new ClaudeUsageSource(), () => Data.Now, delegate { state.Claude = claude.Settings; store.Save(state); });
+                        using (var app = new TrayApplication(engine, claude, store, showEvent, args.Length == 0 || args[0] != "--tray")) Application.Run(app);
                     }
                     finally { mutex.ReleaseMutex(); }
                 }
