@@ -1,10 +1,10 @@
-# Codex Reset Guard
+# Reset Guard
 
 A small, portable Windows tray app that uses your **existing banked Codex reset credits**, according to rules you explicitly enable. It can also watch your Claude plan usage and alert you when a Claude limit reset is worth using. Version 1.2.0. Independent software; not an OpenAI or Anthropic product.
 
 ## Start
 
-1. Keep `CodexResetGuard.exe` and `CodexResetGuard.exe.config` together. Double-click the executable.
+1. Keep `ResetGuard.exe` and `ResetGuard.exe.config` together. Double-click the executable.
 2. Wait for your account, weekly usage, and reset credits to load.
 3. On **Credits**, check the credits this app may use. **Allow all shown** selects the credits currently displayed. Future credits remain unchecked.
 4. On **Automation**, choose the usage window, threshold, timing, enabled period, maximum resets, reserve count, and credit selection.
@@ -67,7 +67,7 @@ The server decides eligibility. A full banked reset changes the weekly reset dat
 
 The **Claude** page can watch your Claude plan usage. Turn on **Watch my Claude plan usage (read-only)**, choose the alert threshold and window, and select **Save settings**. It starts off.
 
-- Usage is read from the same endpoint Claude Code uses for `/usage`, with the sign-in Claude Code already stores in `~\.claude\.credentials.json` (or `CLAUDE_CONFIG_DIR`). The account email shown is read from `~\.claude.json` (or `CLAUDE_CONFIG_DIR\.claude.json`). The token is read into memory for each request. It is never stored, logged, copied, or refreshed. If it has expired, open Claude Code once to refresh it. Requests identify themselves as Codex Reset Guard.
+- Usage is read from the same endpoint Claude Code uses for `/usage`, with the sign-in Claude Code already stores in `~\.claude\.credentials.json` (or `CLAUDE_CONFIG_DIR`). The account email shown is read from `~\.claude.json` (or `CLAUDE_CONFIG_DIR\.claude.json`). The token is read into memory for each request. It is never stored, logged, copied, or refreshed. If it has expired, open Claude Code once to refresh it. Requests identify themselves as Reset Guard.
 - Each watched 5-hour or weekly window alerts once at your threshold and again at 100% (optional). At most one alert is shown per check; a window that jumps straight to 100% gets only the limit alert. Per-model windows (such as Fable) are shown but do not alert. Alerts are skipped when the window resets on its own within two minutes. Clicking an alert opens the Claude page. Usage from a failed check is never shown as current.
 - Claude limit resets are claimed in Claude's own apps, which ask you to confirm each one. **Use a reset in Claude Code** opens Claude Code with `/limit-reset`. **Open claude.ai usage** opens Settings → Usage, where Claude offers *Reset for free* when you have one. Reset Guard never claims a Claude reset itself. Claude currently reports banked-reset details only to its own apps, so the page may say so instead of showing a count.
 - Polling is every three minutes, or every minute once a watched window is within ten points of the threshold. Errors back off to 2, 4, 8, then 15 minutes.
@@ -94,7 +94,7 @@ The complete C# source and build script are in `source/`. From PowerShell:
 
 ```powershell
 .\source\Build.ps1 -OutDir .\build
-.\build\CodexResetGuard.Tests.exe
+.\build\ResetGuard.Tests.exe
 ```
 
 The compiler supplied with .NET Framework is used; no package downloads are required. `--ui-smoke <directory>` renders all five pages in both themes using explicitly synthetic data and cannot redeem credits. `--read-only-check <report.json>` checks the real account connection without sending a reset or model request. Use `Start-Process -Wait` when scripting those GUI-executable modes.

@@ -9,11 +9,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-[assembly: AssemblyTitle("Codex Reset Guard")]
+[assembly: AssemblyTitle("Reset Guard")]
 [assembly: AssemblyDescription("Opt-in Windows tray automation for existing Codex reset credits, with Claude usage alerts")]
 [assembly: AssemblyVersion("1.2.0.0")]
 [assembly: AssemblyFileVersion("1.2.0.0")]
-[assembly: AssemblyProduct("Codex Reset Guard")]
+[assembly: AssemblyProduct("Reset Guard")]
 [assembly: AssemblyCopyright("MIT License")]
 
 namespace CodexResetGuard
@@ -60,10 +60,10 @@ namespace CodexResetGuard
             }
             catch (Exception ex)
             {
-                string message = ex is GuardException ? ex.Message : "Codex Reset Guard could not start. No reset request was sent during startup.";
+                string message = ex is GuardException ? ex.Message : "Reset Guard could not start. No reset request was sent during startup.";
                 if (args.Length == 2 && args[0] == "--ui-smoke") { Directory.CreateDirectory(args[1]); File.WriteAllText(Path.Combine(args[1], "ui-smoke-error.txt"), ex.ToString()); }
                 else if (args.Length == 2 && args[0] == "--read-only-check") File.WriteAllText(args[1], Data.Json(new { ok = false, error = message }));
-                else MessageBox.Show(message, "Codex Reset Guard", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                else MessageBox.Show(message, "Reset Guard", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return 1;
             }
         }

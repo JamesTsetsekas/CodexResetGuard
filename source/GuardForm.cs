@@ -53,7 +53,7 @@ namespace CodexResetGuard
         {
             this.engine = engine; this.claude = claude; this.refresh = refresh; this.claudeRefresh = claudeRefresh; this.retry = retry; this.saveExtras = saveExtras; this.demo = demo;
             themePreference = demo ? "light" : Appearance.Load(); palette = Palette.Create(Appearance.IsDark(themePreference));
-            Text = "Codex Reset Guard"; Font = PaintKit.Font(9.5F, false); BackColor = palette.Canvas; ForeColor = palette.Ink;
+            Text = "Reset Guard"; Font = PaintKit.Font(9.5F, false); BackColor = palette.Canvas; ForeColor = palette.Ink;
             StartPosition = FormStartPosition.CenterScreen; AutoScaleDimensions = new SizeF(96, 96); AutoScaleMode = AutoScaleMode.Dpi;
             ClientSize = new Size(600, 820); MinimumSize = new Size(600, 560); MaximizeBox = false; DoubleBuffered = true;
             Icon = TrayIcons.Create(Accent); ShowInTaskbar = true;
@@ -63,7 +63,7 @@ namespace CodexResetGuard
             var header = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, Margin = Padding.Empty };
             header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 83)); header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 36));
             var heading = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty };
-            heading.Controls.Add(LabelAt("Codex Reset Guard", 0, 0, 400, 30, 17, true, false));
+            heading.Controls.Add(LabelAt("Reset Guard", 0, 0, 400, 30, 17, true, false));
             account = LabelAt("Connecting to Codex…", 1, 32, 400, 20, 9, false, true); heading.Controls.Add(account); header.Controls.Add(heading, 0, 0);
             badge = new ModernLabel { Dock = DockStyle.Top, Height = 30, TextAlign = ContentAlignment.MiddleCenter, Font = PaintKit.Font(9, true), Margin = new Padding(0, 3, 10, 0) }; header.Controls.Add(badge, 1, 0);
             check = Button("↻", 35, delegate { refresh(); }); check.Font = PaintKit.Font(18, false); check.Tone = ButtonTone.Quiet; check.AccessibleName = "Refresh usage"; tips.SetToolTip(check, "Refresh usage (F5)"); header.Controls.Add(check, 2, 0); layout.Controls.Add(header, 0, 0);
@@ -251,7 +251,7 @@ namespace CodexResetGuard
             executable = new TextBox { Dock = DockStyle.Top, Text = engine.State.CodexExecutable ?? "", BorderStyle = BorderStyle.FixedSingle, Margin = new Padding(0, 3, 7, 0), AccessibleName = "Codex executable path" }; pathRow.Controls.Add(executable, 0, 0);
             browse = Button("Browse…", 88, delegate { using (var dialog = new OpenFileDialog { Title = "Choose the official Codex CLI executable", Filter = "Codex executable (*.exe)|*.exe", CheckFileExists = true }) if (dialog.ShowDialog(this) == DialogResult.OK) executable.Text = dialog.FileName; }); pathRow.Controls.Add(browse, 1, 0);
             table.RowStyles.Add(new RowStyle(SizeType.Absolute, 43)); table.Controls.Add(pathRow, 0, 4); table.SetColumnSpan(pathRow, 2);
-            var note = Note("Codex CLI 0.147.0+ required. Keep your PC awake and the tray app running. Closing this window keeps monitoring active.\n\nCodex Reset Guard " + Program.Version + " · Independent open-source software", 83); table.RowStyles.Add(new RowStyle(SizeType.Absolute, 83)); table.Controls.Add(note, 0, 5); table.SetColumnSpan(note, 2);
+            var note = Note("Codex CLI 0.147.0+ required. Keep your PC awake and the tray app running. Closing this window keeps monitoring active.\n\nReset Guard " + Program.Version + " · Independent open-source software", 83); table.RowStyles.Add(new RowStyle(SizeType.Absolute, 83)); table.Controls.Add(note, 0, 5); table.SetColumnSpan(note, 2);
         }
         private void ApplyRules()
         {
@@ -282,7 +282,7 @@ namespace CodexResetGuard
                 if (expectedAccount != null && (engine.Latest == null || engine.Latest.AccountKey != expectedAccount)) throw new GuardException("The account changed during the check. Review the account and credits before enabling.");
                 engine.Arm(rules); refresh();
             }
-            catch (Exception ex) { MessageBox.Show(this, ex is GuardException ? ex.Message : "Automatic resets could not be enabled. Check the connection and saved rules.", "Codex Reset Guard", MessageBoxButtons.OK, MessageBoxIcon.Information); } UpdateView();
+            catch (Exception ex) { MessageBox.Show(this, ex is GuardException ? ex.Message : "Automatic resets could not be enabled. Check the connection and saved rules.", "Reset Guard", MessageBoxButtons.OK, MessageBoxIcon.Information); } UpdateView();
         }
         public void UpdateView()
         {
@@ -339,7 +339,7 @@ namespace CodexResetGuard
             credits.EndUpdate(); preferred.EndUpdate(); rebuilding = false; initializedCredits = s.DetailsKnown; creditNote.Text = s.Credits.Count == 0 ? "No reset-credit details are available yet. Refresh after earning a banked Codex reset." : "Choose the resets this app may use. Earlier expiries come first; new credits stay unchecked.";
         }
         public void Try(Action action)
-        { try { action(); UpdateView(); } catch (Exception ex) { MessageBox.Show(this, ex is GuardException ? ex.Message : "The setting could not be saved. Automatic resets have not been enabled with this change.", "Codex Reset Guard", MessageBoxButtons.OK, MessageBoxIcon.Information); } }
+        { try { action(); UpdateView(); } catch (Exception ex) { MessageBox.Show(this, ex is GuardException ? ex.Message : "The setting could not be saved. Automatic resets have not been enabled with this change.", "Reset Guard", MessageBoxButtons.OK, MessageBoxIcon.Information); } }
         private void ApplyTheme()
         {
             palette = Palette.Create(Appearance.IsDark(themePreference)); PaintKit.Theme(this, palette);

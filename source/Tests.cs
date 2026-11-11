@@ -177,7 +177,7 @@ namespace CodexResetGuard
         }
         private static void StorageTests()
         {
-            string directory = Path.Combine(Path.GetTempPath(), "CodexResetGuard-tests-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(directory);
+            string directory = Path.Combine(Path.GetTempPath(), "ResetGuard-tests-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(directory);
             try
             {
                 var store = new StateStore(directory); Check(!store.Load().Enabled, "New installations start disabled");
@@ -339,7 +339,7 @@ namespace CodexResetGuard
             Check(threw && !engine.State.Enabled, "Enabling refuses rules whose reserve leaves nothing usable");
             rules = Armed(now).Rules; rules.Window = "fiveHour"; threw = false; try { engine.Arm(rules); } catch (GuardException) { threw = true; }
             Check(threw && !engine.State.Enabled, "Enabling refuses a usage window Codex does not report");
-            string directory = Path.Combine(Path.GetTempPath(), "CodexResetGuard-tests-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(directory);
+            string directory = Path.Combine(Path.GetTempPath(), "ResetGuard-tests-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(directory);
             try
             {
                 var store = new StateStore(directory); var armed = Armed(now); armed.ArmedUntil = 0; File.WriteAllText(store.StatePath, Data.Json(armed));

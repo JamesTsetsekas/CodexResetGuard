@@ -4,13 +4,13 @@ Use Windows x64 with .NET Framework 4.8. The build uses the C# compiler that shi
 
 ```powershell
 .\source\Build.ps1 -OutDir .\build
-.\build\CodexResetGuard.Tests.exe
+.\build\ResetGuard.Tests.exe
 ```
 
 For UI changes, render every page in both themes and exercise the controls with synthetic account data:
 
 ```powershell
-Start-Process .\build\CodexResetGuard.exe -ArgumentList '--ui-smoke', 'build\ui' -Wait
+Start-Process .\build\ResetGuard.exe -ArgumentList '--ui-smoke', 'build\ui' -Wait
 ```
 
 Inspect `build/ui/ui-checks.json`, the light/dark screenshots, and the enabled, pending, completed, and empty states. UI smoke mode never reads appearance preferences, changes startup registration, or sends a live reset request. Its isolated engine can only arm the fake account. Production reset logic remains covered by the separate tests above.
